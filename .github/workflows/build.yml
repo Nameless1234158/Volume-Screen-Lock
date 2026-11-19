@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Instalar Java 17
         uses: actions/setup-java@v4
@@ -27,6 +29,7 @@ jobs:
           cache-disabled: true
 
       - name: Montar projeto
+        shell: bash
         run: |
           set -e
           B="$RUNNER_TEMP/projeto"
@@ -35,11 +38,21 @@ jobs:
           mkdir -p "$PKG" "$SRC/res/values" "$SRC/res/xml" "$SRC/res/drawable"
           FALTANDO=""
           pegar() {
-            local nome="$1" destino="$2" achado
-            achado=$(find "$GITHUB_WORKSPACE" -type f -name "$nome" -not -path '*/.git/*' -not -path '*/build/*' | head -n 1)
-            if [ -n "$achado" ]; then
-              cp "$achado" "$destino/$nome"
-              echo "OK     $nome  <-  ${achado#$GITHUB_WORKSPACE/}"
+            local nome="$1" destino="$2" melhor="" melhor_t=-1 n=0 t rel
+            while IFS= read -r f; do
+              n=$((n+1))
+              rel="${f#$GITHUB_WORKSPACE/}"
+              t=$(git -C "$GITHUB_WORKSPACE" log -1 --format=%ct -- "$rel" 2>/dev/null || true)
+              t=${t:-0}
+              echo "     cópia: $rel (editada em $(date -d @$t '+%d/%m %H:%M'))"
+              if [ "$t" -gt "$melhor_t" ]; then melhor_t=$t; melhor="$f"; fi
+            done < <(find "$GITHUB_WORKSPACE" -type f -name "$nome" -not -path '*/.git/*' -not -path '*/build/*')
+            if [ -n "$melhor" ]; then
+              cp "$melhor" "$destino/$nome"
+              echo "OK     $nome  <-  ${melhor#$GITHUB_WORKSPACE/}"
+              if [ "$n" -gt 1 ]; then
+                echo "::warning::$nome tem $n cópias no repositório. Usando a mais recente: ${melhor#$GITHUB_WORKSPACE/}"
+              fi
             else
               FALTANDO="$FALTANDO $nome"
               echo "FALTA  $nome"
@@ -86,6 +99,7 @@ jobs:
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
           }
+          val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
           android {
               namespace = "br.com.telavolume"
               compileSdk = 34
@@ -93,8 +107,8 @@ jobs:
                   applicationId = "br.com.telavolume"
                   minSdk = 29
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
+                  versionCode = run
+                  versionName = "1.0.$run"
               }
               buildTypes {
                   release {
