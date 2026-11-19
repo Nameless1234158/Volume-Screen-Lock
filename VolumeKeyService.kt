@@ -307,7 +307,7 @@ class VolumeKeyService : AccessibilityService() {
     }
 
     // =====================================================================
-    //  TELA APAGADA: reserva pela sessão de mídia
+    //  TELA APAGADA: escuta os botões pela sessão de mídia
     // =====================================================================
     private fun arm() {
         if (armed) return
@@ -343,6 +343,8 @@ class VolumeKeyService : AccessibilityService() {
     private fun startSession() {
         try {
             val s = MediaSession(this, "TelaVolume")
+            // Sem um callback registrado, o Android descarta os cliques de volume enviados à sessão
+            s.setCallback(object : MediaSession.Callback() {}, handler)
             val provider = object : VolumeProvider(VOLUME_CONTROL_RELATIVE, 100, 50) {
                 override fun onAdjustVolume(direction: Int) {
                     handler.post {
