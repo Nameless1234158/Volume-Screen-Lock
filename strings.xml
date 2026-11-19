@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tela Volume</string>
+    <string name="a11y_description">Permite apagar e acender a tela pressionando Volume+ e Volume− ao mesmo tempo. O serviço lê apenas os botões de volume; não lê o conteúdo da tela.</string>
+</resources>
