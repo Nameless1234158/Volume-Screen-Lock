@@ -197,7 +197,7 @@ class VolumeKeyService : AccessibilityService() {
     }
 
     // =====================================================================
-    //  BOTÕES DE VOLUME: apagam com a tela acesa e acendem com a tela apagada
+    //  TELA ACESA: Volume+ e Volume− juntos apagam a tela
     // =====================================================================
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
@@ -301,7 +301,7 @@ class VolumeKeyService : AccessibilityService() {
         // Escudo já posicionado antes de acender: nenhum toque fantasma passa no instante em que a tela liga
         if (prefs.enabled && prefs.shieldEnabled) showShield(preview = false)
         val musicPlaying = audio.isMusicActive
-        val willArm = prefs.enabled && (lockedByUs || (prefs.armOnPowerOff && !musicPlaying))
+        val willArm = prefs.enabled && (lockedByUs || prefs.armOnPowerOff)
         prefs.log("Tela apagou — pelo atalho: ${sim(lockedByUs)}, música tocando: ${sim(musicPlaying)}, vai escutar volume: ${sim(willArm)}")
         if (willArm) arm()
     }
@@ -524,7 +524,7 @@ class VolumeKeyService : AccessibilityService() {
 
         val color = if (preview) 0xAA000000.toInt() else Color.TRANSPARENT
         // Quatro blocos ao redor do sensor: o quadrado do meio fica sem janela, e o toque chega à digital
-        addBlock(0, 0, sw, top, color, withLabel = true)
+        addBlock(0, 0, sw, top, color, withLabel = preview)
         addBlock(0, bottom, sw, sh - bottom, color, withLabel = false)
         addBlock(0, top, left, bottom - top, color, withLabel = false)
         addBlock(right, top, sw - right, bottom - top, color, withLabel = false)
