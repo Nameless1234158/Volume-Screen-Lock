@@ -46,6 +46,23 @@ class Prefs(ctx: Context) {
             .putFloat("fp_size", DEFAULT_FP_SIZE).apply()
     }
 
+    /** Com a tela apagada, 2 cliques rápidos em qualquer botão de volume também acendem. */
+    var anyTwoPresses: Boolean
+        get() = sp.getBoolean("any_two_presses", true)
+        set(v) = sp.edit().putBoolean("any_two_presses", v).apply()
+
+    // ---------- Diagnóstico ----------
+    val diag: String
+        get() = sp.getString("diag", "") ?: ""
+
+    fun log(msg: String) {
+        val ts = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date())
+        val lines = diag.lines().filter { it.isNotBlank() }.takeLast(59) + "$ts  $msg"
+        sp.edit().putString("diag", lines.joinToString("\n")).apply()
+    }
+
+    fun clearDiag() = sp.edit().putString("diag", "").apply()
+
     val lastWake: String?
         get() = sp.getString("last_wake", null)
 

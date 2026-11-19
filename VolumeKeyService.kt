@@ -88,8 +88,10 @@ class VolumeKeyService : AccessibilityService() {
     private var session: MediaSession? = null
     private var silentTrack: AudioTrack? = null
     private var savedMusicVolume = -1
+    private var savedRingVolume = -1
     private var lastUpAt = 0L
     private var lastDownAt = 0L
+    private var lastAnyAt = 0L
 
     // ---------- Escudo ----------
     private val shieldViews = mutableListOf<View>()
@@ -105,6 +107,7 @@ class VolumeKeyService : AccessibilityService() {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> onScreenOff()
                 Intent.ACTION_SCREEN_ON -> {
+                    prefs.log("Tela acendeu")
                     disarm()
                     lockedByUs = false
                     resetKeyState()
@@ -122,11 +125,12 @@ class VolumeKeyService : AccessibilityService() {
     private val volumeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (!armed) return
-            if (intent.getIntExtra(EXTRA_STREAM_TYPE, -1) != AudioManager.STREAM_MUSIC) return
+            val type = intent.getIntExtra(EXTRA_STREAM_TYPE, -1)
             val value = intent.getIntExtra(EXTRA_VALUE, -1)
             val prev = intent.getIntExtra(EXTRA_PREV, -1)
+            prefs.log("Sistema mudou volume (${streamName(type)}): $prev → $value")
             if (value < 0 || prev < 0 || value == prev) return
-            onScreenOffPress(if (value > prev) 1 else -1, "volume do sistema")
+            onScreenOffPress(if (value > prev) 1 else -1, "volume do sistema (${streamName(type)})")
         }
     }
 
@@ -138,6 +142,7 @@ class VolumeKeyService : AccessibilityService() {
         keyguard = getSystemService(KeyguardManager::class.java)
         power = getSystemService(PowerManager::class.java)
         prefs = Prefs(this)
+        prefs.log("Serviço conectado")
 
         register(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -271,6 +276,7 @@ class VolumeKeyService : AccessibilityService() {
         lockedByUs = true
         ignoreUntil = SystemClock.uptimeMillis() + COOLDOWN_MS
         val ok = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        prefs.log("Atalho de apagar acionado: " + if (ok) "ok" else "FALHOU")
         if (!ok) lockedByUs = false
         return ok
     }
@@ -282,7 +288,9 @@ class VolumeKeyService : AccessibilityService() {
         // Escudo já posicionado antes de acender: nenhum toque fantasma passa no instante em que a tela liga
         if (prefs.enabled && prefs.shieldEnabled) showShield(preview = false)
         val musicPlaying = audio.isMusicActive
-        if (prefs.enabled && (lockedByUs || (prefs.armOnPowerOff && !musicPlaying))) arm()
+        val willArm = prefs.enabled && (lockedByUs || (prefs.armOnPowerOff && !musicPlaying))
+        prefs.log("Tela apagou — pelo atalho: ${sim(lockedByUs)}, música tocando: ${sim(musicPlaying)}, vai escutar volume: ${sim(willArm)}")
+        if (willArm) arm()
     }
 
     // =====================================================================
@@ -294,7 +302,9 @@ class VolumeKeyService : AccessibilityService() {
         lastUpAt = 0L
         lastDownAt = 0L
 
-        // Prepara o volume de mídia para o plano B (precisa poder subir e descer)
+        lastAnyAt = 0L
+        // Guarda os volumes para restaurar depois (plano B muda o volume do sistema)
+        savedRingVolume = try { audio.getStreamVolume(AudioManager.STREAM_RING) } catch (_: Exception) { -1 }
         if (!audio.isMusicActive) {
             try {
                 savedMusicVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -311,6 +321,10 @@ class VolumeKeyService : AccessibilityService() {
 
         if (prefs.silentAudio) startSilence()
         startSession()
+        prefs.log("Escutando volume — sessão de mídia: ${sim(session != null)}, áudio silencioso: ${sim(silentTrack != null)}")
+        handler.postDelayed({
+            if (armed) prefs.log("Checagem: sistema vê mídia tocando = ${sim(audio.isMusicActive)}")
+        }, 800)
     }
 
     private fun startSession() {
@@ -318,8 +332,9 @@ class VolumeKeyService : AccessibilityService() {
             val s = MediaSession(this, "TelaVolume")
             val provider = object : VolumeProvider(VOLUME_CONTROL_RELATIVE, 100, 50) {
                 override fun onAdjustVolume(direction: Int) {
-                    if (direction != 0) handler.post {
-                        if (armed) onScreenOffPress(direction, "sessão de mídia")
+                    handler.post {
+                        prefs.log("Sessão de mídia recebeu botão: $direction (escutando: ${sim(armed)})")
+                        if (armed && direction != 0) onScreenOffPress(direction, "sessão de mídia")
                     }
                 }
             }
@@ -369,6 +384,14 @@ class VolumeKeyService : AccessibilityService() {
 
     private fun onScreenOffPress(direction: Int, source: String) {
         val now = SystemClock.uptimeMillis()
+        if (prefs.anyTwoPresses) {
+            if (lastAnyAt > 0 && now - lastAnyAt <= OFF_COMBO_WINDOW_MS) {
+                lastAnyAt = 0L
+                wakeScreen("$source, 2 cliques")
+                return
+            }
+            lastAnyAt = now
+        }
         if (direction > 0) lastUpAt = now else lastDownAt = now
         if (lastUpAt > 0 && lastDownAt > 0 && abs(lastUpAt - lastDownAt) <= OFF_COMBO_WINDOW_MS) {
             lastUpAt = 0L
@@ -392,10 +415,19 @@ class VolumeKeyService : AccessibilityService() {
         if (savedMusicVolume >= 0) {
             try { audio.setStreamVolume(AudioManager.STREAM_MUSIC, savedMusicVolume, 0) } catch (_: Exception) {}
         }
+        if (savedRingVolume >= 0) {
+            try {
+                if (audio.getStreamVolume(AudioManager.STREAM_RING) != savedRingVolume) {
+                    audio.setStreamVolume(AudioManager.STREAM_RING, savedRingVolume, 0)
+                }
+            } catch (_: Exception) {}
+        }
         savedMusicVolume = -1
+        savedRingVolume = -1
     }
 
     private fun wakeScreen(source: String) {
+        prefs.log("ACENDENDO via $source")
         disarm()
         lockedByUs = false
         resetKeyState()
@@ -540,6 +572,18 @@ class VolumeKeyService : AccessibilityService() {
         }
         shieldViews.clear()
         shieldPreview = false
+    }
+
+    private fun sim(b: Boolean) = if (b) "sim" else "não"
+
+    private fun streamName(type: Int) = when (type) {
+        AudioManager.STREAM_MUSIC -> "mídia"
+        AudioManager.STREAM_RING -> "toque"
+        AudioManager.STREAM_NOTIFICATION -> "notificação"
+        AudioManager.STREAM_SYSTEM -> "sistema"
+        AudioManager.STREAM_ALARM -> "alarme"
+        AudioManager.STREAM_VOICE_CALL -> "chamada"
+        else -> "fluxo $type"
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()

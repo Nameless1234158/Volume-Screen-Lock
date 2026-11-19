@@ -22,6 +22,7 @@ class MainActivity : Activity() {
     private lateinit var serviceStatus: TextView
     private lateinit var batteryStatus: TextView
     private lateinit var lastWakeText: TextView
+    private lateinit var diagText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,6 +79,9 @@ class MainActivity : Activity() {
         switch("Áudio silencioso de reforço (recomendado na Samsung)", prefs.silentAudio) {
             prefs.silentAudio = it
         }
+        switch("Com a tela apagada, 2 cliques rápidos em qualquer botão de volume também acendem", prefs.anyTwoPresses) {
+            prefs.anyTwoPresses = it
+        }
 
         section("6. Testar")
         text("Toque em \"Apagar a tela agora\", espere 3 segundos e aperte Volume+ e Volume− juntos.")
@@ -86,6 +90,18 @@ class MainActivity : Activity() {
             if (s == null) toast("Ative o serviço primeiro (passo 1)") else s.lockScreenNow()
         }
         lastWakeText = text("")
+
+        section("7. Diagnóstico")
+        text("Depois de um teste, tire um print desta área e envie para análise.")
+        button("Atualizar diagnóstico") { diagText.text = prefs.diag.ifBlank { "(vazio)" } }
+        button("Limpar diagnóstico") { prefs.clearDiag(); diagText.text = "(vazio)" }
+        diagText = TextView(this).apply {
+            textSize = 12f
+            typeface = Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        root.addView(diagText)
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -97,6 +113,7 @@ class MainActivity : Activity() {
         batteryStatus.text = if (pm.isIgnoringBatteryOptimizations(packageName))
             "✅ Bateria sem restrição" else "⚠️ Bateria com otimização (o sistema pode encerrar o app)"
         lastWakeText.text = "Último acendimento pelo volume: " + (prefs.lastWake ?: "nenhum ainda")
+        diagText.text = prefs.diag.ifBlank { "(vazio)" }
     }
 
     private fun serviceEnabled(): Boolean {
