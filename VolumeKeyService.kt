@@ -538,7 +538,7 @@ class VolumeKeyService : AccessibilityService() {
                 setBackgroundColor(color)
                 addView(
                     TextView(this@VolumeKeyService).apply {
-                        text = "🛡 Toques bloqueados · use a digital · Volume+ libera"
+                        text = "Toques bloqueados · use a digital · Volume+ libera"
                         setTextColor(Color.WHITE)
                         textSize = 12f
                         setPadding(dp(14), dp(6), dp(14), dp(6))
