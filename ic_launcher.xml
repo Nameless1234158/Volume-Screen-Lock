@@ -1,20 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#1F2937" android:pathData="M0,0h108v108h-108z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:pathData="M54,30 L54,54" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:pathData="M40,38 A22,22 0 1,0 68,38" />
-</vector>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <background>
+        <aapt:attr name="android:drawable">
+            <vector
+                android:width="108dp"
+                android:height="108dp"
+                android:viewportWidth="108"
+                android:viewportHeight="108">
+                <path android:fillColor="#1D4ED8" android:pathData="M0,0h108v108h-108z" />
+                <path android:fillColor="#2563EB" android:pathData="M0,0H108V38L0,82Z" />
+            </vector>
+        </aapt:attr>
+    </background>
+    <foreground>
+        <aapt:attr name="android:drawable">
+            <vector
+                android:width="108dp"
+                android:height="108dp"
+                android:viewportWidth="108"
+                android:viewportHeight="108">
+                <!-- Corpo do celular -->
+                <path
+                    android:fillColor="#26FFFFFF"
+                    android:strokeColor="#FFFFFF"
+                    android:strokeWidth="3.5"
+                    android:pathData="M44,30H62A4,4 0,0 1,66 34V74A4,4 0,0 1,62 78H44A4,4 0,0 1,40 74V34A4,4 0,0 1,44 30Z" />
+                <!-- Botões de volume -->
+                <path
+                    android:strokeColor="#BFDBFE"
+                    android:strokeWidth="4"
+                    android:strokeLineCap="round"
+                    android:pathData="M70.5,40V47M70.5,51V58" />
+                <!-- Símbolo de energia -->
+                <path
+                    android:strokeColor="#FFFFFF"
+                    android:strokeWidth="3.5"
+                    android:strokeLineCap="round"
+                    android:pathData="M56.5,48.4A7,7 0,1 1,49.5 48.4" />
+                <path
+                    android:strokeColor="#FFFFFF"
+                    android:strokeWidth="3.5"
+                    android:strokeLineCap="round"
+                    android:pathData="M53,44.5V52.5" />
+            </vector>
+        </aapt:attr>
+    </foreground>
+</adaptive-icon>
