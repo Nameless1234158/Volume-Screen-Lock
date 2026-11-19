@@ -92,6 +92,7 @@ class VolumeKeyService : AccessibilityService() {
     private var lastUpAt = 0L
     private var lastDownAt = 0L
     private var lastAnyAt = 0L
+    private var lastLockAt = 0L
 
     // ---------- Escudo ----------
     private val shieldViews = mutableListOf<View>()
@@ -196,7 +197,7 @@ class VolumeKeyService : AccessibilityService() {
     }
 
     // =====================================================================
-    //  TELA ACESA: Volume+ e Volume− juntos apagam a tela
+    //  BOTÕES DE VOLUME: apagam com a tela acesa e acendem com a tela apagada
     // =====================================================================
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
@@ -205,6 +206,17 @@ class VolumeKeyService : AccessibilityService() {
         if (inCall()) return false // durante ligação, os botões funcionam normalmente
 
         val isUp = code == KeyEvent.KEYCODE_VOLUME_UP
+
+        // TELA APAGADA: na Samsung, o serviço de acessibilidade continua recebendo os botões
+        if (!power.isInteractive) {
+            if (!armed) return false // ex.: música tocando quando a tela apagou pelo botão lateral
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+                SystemClock.uptimeMillis() - lastLockAt > 400) {
+                prefs.log("Botão com tela apagada (acessibilidade): " + if (isUp) "Volume+" else "Volume−")
+                onScreenOffPress(if (isUp) 1 else -1, "acessibilidade")
+            }
+            return true
+        }
 
         if (SystemClock.uptimeMillis() < ignoreUntil) {
             if (event.action == KeyEvent.ACTION_UP) {
@@ -274,7 +286,8 @@ class VolumeKeyService : AccessibilityService() {
     /** Apaga e bloqueia a tela exatamente como o botão lateral (mantém a digital funcionando). */
     fun lockScreenNow(): Boolean {
         lockedByUs = true
-        ignoreUntil = SystemClock.uptimeMillis() + COOLDOWN_MS
+        lastLockAt = SystemClock.uptimeMillis()
+        ignoreUntil = lastLockAt + COOLDOWN_MS
         val ok = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
         prefs.log("Atalho de apagar acionado: " + if (ok) "ok" else "FALHOU")
         if (!ok) lockedByUs = false
@@ -294,7 +307,7 @@ class VolumeKeyService : AccessibilityService() {
     }
 
     // =====================================================================
-    //  TELA APAGADA: escuta os botões pela sessão de mídia
+    //  TELA APAGADA: reserva pela sessão de mídia
     // =====================================================================
     private fun arm() {
         if (armed) return
