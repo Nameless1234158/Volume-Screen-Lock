@@ -1,4 +1,4 @@
-# Tela Volume
+# Volume Screen Lock
 
 App Android que apaga e acende a tela com **Volume+ e Volume− pressionados juntos**, e protege a tela de bloqueio contra toques fantasmas. Feito e ajustado para o **Samsung Galaxy S24 FE** (One UI), mas funciona em outros aparelhos com Android 10 ou superior.
 
