@@ -24,12 +24,99 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+          cache-disabled: true
+
+      - name: Montar projeto
+        run: |
+          set -e
+          B="$RUNNER_TEMP/projeto"
+          SRC="$B/app/src/main"
+          PKG="$SRC/java/br/com/telavolume"
+          mkdir -p "$PKG" "$SRC/res/values" "$SRC/res/xml" "$SRC/res/drawable"
+          FALTANDO=""
+          pegar() {
+            local nome="$1" destino="$2" achado
+            achado=$(find "$GITHUB_WORKSPACE" -type f -name "$nome" -not -path '*/.git/*' -not -path '*/build/*' | head -n 1)
+            if [ -n "$achado" ]; then
+              cp "$achado" "$destino/$nome"
+              echo "OK     $nome  <-  ${achado#$GITHUB_WORKSPACE/}"
+            else
+              FALTANDO="$FALTANDO $nome"
+              echo "FALTA  $nome"
+            fi
+          }
+          pegar AndroidManifest.xml "$SRC"
+          for f in MainActivity.kt VolumeKeyService.kt CalibrateActivity.kt WakeActivity.kt Prefs.kt; do
+            pegar "$f" "$PKG"
+          done
+          pegar strings.xml "$SRC/res/values"
+          pegar accessibility_service_config.xml "$SRC/res/xml"
+          pegar ic_launcher.xml "$SRC/res/drawable"
+          if [ -n "$FALTANDO" ]; then
+            echo "::error::Arquivos faltando no repositório:$FALTANDO"
+            exit 1
+          fi
+
+          cat > "$B/settings.gradle.kts" << 'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              plugins {
+                  id("com.android.application") version "8.5.2"
+                  id("org.jetbrains.kotlin.android") version "1.9.24"
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "TelaVolume"
+          include(":app")
+          EOF
+
+          echo "// versões em settings.gradle.kts" > "$B/build.gradle.kts"
+
+          cat > "$B/gradle.properties" << 'EOF'
+          org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > "$B/app/build.gradle.kts" << 'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+          android {
+              namespace = "br.com.telavolume"
+              compileSdk = 34
+              defaultConfig {
+                  applicationId = "br.com.telavolume"
+                  minSdk = 29
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      signingConfig = signingConfigs.getByName("debug")
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+              lint {
+                  checkReleaseBuilds = false
+                  abortOnError = false
+              }
+          }
+          EOF
 
       - name: Compilar APK
         run: |
-          DIR=$(dirname "$(find . -name settings.gradle.kts -not -path '*/build/*' | head -n 1)")
-          echo "Projeto encontrado em: $DIR"
-          cd "$DIR"
+          cd "$RUNNER_TEMP/projeto"
           gradle assembleRelease --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/TelaVolume-v1.0.${{ github.run_number }}.apk"
 
